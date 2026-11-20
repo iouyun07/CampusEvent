@@ -1,0 +1,21 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 数据库与运行时
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# 编辑器
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 测试缓存
+.pytest_cache/
