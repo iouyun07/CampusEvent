@@ -29,6 +29,13 @@ bp = Blueprint("main", __name__)
 
 DEFAULT_STUDENT = "2023001"
 
+# 演示用：页面右上角可切换学生身份，便于演示名额、审批等跨学生场景。
+DEMO_STUDENTS = [
+    ("2023001", "张伟"),
+    ("2023002", "李娜"),
+    ("2023003", "王强"),
+]
+
 
 def _student_id() -> str:
     return session.get("student_id", DEFAULT_STUDENT)
@@ -78,6 +85,24 @@ def _prepare_session() -> None:
 
 def _unread() -> int:
     return MessageRepository(get_db()).unread_count(_student_id())
+
+
+@bp.app_context_processor
+def _inject_demo_context() -> dict:
+    return {
+        "demo_students": DEMO_STUDENTS,
+        "current_student": session.get("student_id", DEFAULT_STUDENT),
+    }
+
+
+@bp.post("/switch-student")
+def switch_student():
+    student_id = (request.form.get("student_id") or "").strip()
+    known = {sid for sid, _ in DEMO_STUDENTS}
+    if student_id in known:
+        session["student_id"] = student_id
+        _ensure_student(get_db(), student_id)
+    return redirect(request.form.get("next") or url_for("main.index"))
 
 
 # ---------------- 学生端 ----------------

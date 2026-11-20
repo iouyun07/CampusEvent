@@ -16,6 +16,14 @@
       <a href="{{ url_for('main.messages') }}">消息{% if unread %}<span class="badge">{{ unread }}</span>{% endif %}</a>
       <a href="{{ url_for('main.admin_index') }}">管理端</a>
     </nav>
+    <form class="student-switch" method="post" action="{{ url_for('main.switch_student') }}">
+      <select name="student_id" aria-label="切换演示学生" onchange="this.form.submit()">
+        {% for sid, name in demo_students %}
+        <option value="{{ sid }}" {% if sid == current_student %}selected{% endif %}>{{ name }}（{{ sid }}）</option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="next" value="{{ request.path }}">
+    </form>
   </div>
 </header>
 <main class="wrap">
