@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ activity.title }} - CampusEvent{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('main.index') }}">← 返回活动列表</a></p>
+<h1>{{ activity.title }}</h1>
+
+<div class="cards">
+  <div class="card"><span class="num">{{ stats.approved }}</span><span class="label">已通过</span></div>
+  <div class="card"><span class="num">{{ stats.pending }}</span><span class="label">待审核</span></div>
+  <div class="card"><span class="num">{{ stats.remaining }}</span><span class="label">剩余名额</span></div>
+  <div class="card"><span class="num">{{ activity.capacity }}</span><span class="label">总名额</span></div>
+</div>
+
+<table class="table detail">
+  <tr><th>分类</th><td>{{ activity.category }}</td></tr>
+  <tr><th>开始时间</th><td>{{ activity.start_at }}</td></tr>
+  <tr><th>地点</th><td>{{ activity.location }}</td></tr>
+  <tr><th>报名规则</th><td>{{ policy_label }}</td></tr>
+  <tr><th>当前状态</th><td>{% if activity.has_started() %}已开始，报名已关闭{% else %}报名开放中{% endif %}</td></tr>
+</table>
+
+{% if mine %}
+  <div class="notice">
+    我的报名状态：<span class="status {{ 'ok' if mine.status == '已通过' else 'pending' }}">{{ mine.status }}</span>
+    <form method="post" action="{{ url_for('main.cancel', registration_id=mine.registration_id) }}" class="inline">
+      <input type="hidden" name="next" value="{{ url_for('main.activity_detail', activity_id=activity.activity_id) }}">
+      <button type="submit" class="btn danger small">取消报名</button>
+    </form>
+  </div>
+{% elif activity.has_started() %}
+  <p class="muted">活动已开始，无法报名。</p>
+{% else %}
+  <form method="post" action="{{ url_for('main.register', activity_id=activity.activity_id) }}">
+    <button type="submit" class="btn">立即报名</button>
+  </form>
+{% endif %}
+
+<h2>我的历史记录</h2>
+{% if history %}
+<table class="table">
+  <thead><tr><th>报名编号</th><th>状态</th><th>创建时间</th><th>更新时间</th></tr></thead>
+  <tbody>
+  {% for r in history %}
+    <tr><td>#{{ r.registration_id }}</td><td>{{ r.status }}</td><td>{{ r.created_at }}</td><td>{{ r.updated_at }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">还没有报名记录。</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}消息 - CampusEvent{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>我的消息</h1>
+  <form method="post" action="{{ url_for('main.read_all_messages') }}">
+    <button type="submit" class="btn small">全部标为已读</button>
+  </form>
+</div>
+{% if rows %}
+<ul class="messages">
+  {% for m in rows %}
+  <li class="{{ 'unread' if not m.is_read }}">
+    <div class="msg-body">
+      <p>{{ m.content }}</p>
+      <span class="muted">{{ m.title }} · {{ m.created_at }}</span>
+    </div>
+    {% if not m.is_read %}
+    <form method="post" action="{{ url_for('main.read_message', message_id=m.message_id) }}">
+      <button type="submit" class="btn small">标为已读</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">暂无消息。</p>
+{% endif %}
+{% endblock %}

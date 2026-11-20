@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}活动列表 - CampusEvent{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>校园活动</h1>
+  <form class="search" method="get" action="{{ url_for('main.index') }}">
+    <input type="text" name="keyword" value="{{ keyword }}" placeholder="搜索活动名称、分类或地点">
+    <button type="submit">搜索</button>
+  </form>
+</div>
+
+{% if rows %}
+<table class="table">
+  <thead>
+    <tr>
+      <th>活动</th><th>分类</th><th>开始时间</th><th>地点</th>
+      <th>报名规则</th><th>剩余名额</th><th>我的状态</th><th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    {% set a = row.activity %}
+    <tr>
+      <td>{{ a.title }}</td>
+      <td>{{ a.category }}</td>
+      <td>{{ a.start_at }}</td>
+      <td>{{ a.location }}</td>
+      <td>{% if a.policy_type == 'direct' %}直接报名{% else %}需审核{% endif %}</td>
+      <td>{{ row.remaining }} / {{ a.capacity }}</td>
+      <td>
+        {% if row.my %}
+          <span class="status {{ 'ok' if row.my.status == '已通过' else 'pending' }}">{{ row.my.status }}</span>
+        {% elif a.has_started() %}
+          <span class="muted">已开始</span>
+        {% else %}
+          <span class="muted">未报名</span>
+        {% endif %}
+      </td>
+      <td><a class="btn small" href="{{ url_for('main.activity_detail', activity_id=a.activity_id) }}">详情</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">没有匹配的活动{% if keyword %}（关键词：{{ keyword }}）{% endif %}。</p>
+{% endif %}
+{% endblock %}

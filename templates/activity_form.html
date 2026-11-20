@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑活动' if activity else '新建活动' }} - CampusEvent{% endblock %}
+{% block content %}
+<h1>{{ '编辑活动' if activity else '新建活动' }}</h1>
+<form class="form" method="post"
+      action="{{ url_for('main.activity_update', activity_id=activity.activity_id) if activity else url_for('main.activity_create') }}">
+  <label>活动名称
+    <input type="text" name="title" value="{{ form.title or '' }}" maxlength="100" required>
+    {% if errors.title %}<span class="err">{{ errors.title }}</span>{% endif %}
+  </label>
+  <label>分类
+    <input type="text" name="category" value="{{ form.category or '' }}" maxlength="50" required>
+    {% if errors.category %}<span class="err">{{ errors.category }}</span>{% endif %}
+  </label>
+  <label>开始时间
+    <input type="text" name="start_at" value="{{ form.start_at or '' }}" placeholder="2026-12-01 19:00" required>
+    {% if errors.start_at %}<span class="err">{{ errors.start_at }}</span>{% endif %}
+  </label>
+  <label>地点
+    <input type="text" name="location" value="{{ form.location or '' }}" maxlength="100" required>
+    {% if errors.location %}<span class="err">{{ errors.location }}</span>{% endif %}
+  </label>
+  <label>名额
+    <input type="number" name="capacity" value="{{ form.capacity or '' }}" min="1" max="1000" required>
+    {% if errors.capacity %}<span class="err">{{ errors.capacity }}</span>{% endif %}
+  </label>
+  <label>报名规则
+    <select name="policy_type">
+      <option value="direct" {{ 'selected' if form.policy_type == 'direct' else '' }}>直接报名（名额未满即通过）</option>
+      <option value="review" {{ 'selected' if form.policy_type == 'review' else '' }}>需审核（管理员审批）</option>
+    </select>
+    {% if errors.policy_type %}<span class="err">{{ errors.policy_type }}</span>{% endif %}
+  </label>
+  <div class="form-actions">
+    <button type="submit" class="btn">{{ '保存修改' if activity else '创建活动' }}</button>
+    <a class="btn ghost" href="{{ url_for('main.admin_index') }}">返回</a>
+  </div>
+</form>
+{% endblock %}

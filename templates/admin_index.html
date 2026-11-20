@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}活动管理 - CampusEvent{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>活动管理</h1>
+  <div>
+    <a class="btn small" href="{{ url_for('main.activity_new') }}">新建活动</a>
+    <a class="btn small ghost" href="{{ url_for('main.admin_approvals') }}">待审核报名</a>
+  </div>
+</div>
+
+{% if rows %}
+<table class="table">
+  <thead>
+    <tr>
+      <th>活动</th><th>分类</th><th>开始时间</th><th>名额</th>
+      <th>已通过</th><th>待审核</th><th>剩余</th><th>规则</th><th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    {% set a = row.activity %}
+    <tr>
+      <td>{{ a.title }}</td>
+      <td>{{ a.category }}</td>
+      <td>{{ a.start_at }}</td>
+      <td>{{ a.capacity }}</td>
+      <td>{{ row.stats.approved }}</td>
+      <td>{{ row.stats.pending }}</td>
+      <td>{{ row.stats.remaining }}</td>
+      <td>{% if a.policy_type == 'direct' %}直接报名{% else %}需审核{% endif %}</td>
+      <td class="actions">
+        <a class="btn small" href="{{ url_for('main.activity_edit', activity_id=a.activity_id) }}">编辑</a>
+        <form method="post" action="{{ url_for('main.activity_delete', activity_id=a.activity_id) }}"
+              onsubmit="return confirm('确定删除该活动吗？');">
+          <button type="submit" class="btn danger small">删除</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">还没有活动，点击“新建活动”开始。</p>
+{% endif %}
+{% endblock %}
