@@ -24,3 +24,13 @@
   3. **测试辅助函数参数**：`create_activity(client, conn, ...)` 需要连接对象查 ID，初版用例漏传，统一修正。
 - **验证**：`python -m pytest -q` → `19 passed`，覆盖验收 C1–C10 及额外业务规则。
 - **人工判断**：追加「切换演示学生」下拉，仅为演示名额与审批流程，不属于新增业务功能。
+
+## 2026-11-25 推送到 GitHub 与部署到 PythonAnywhere
+
+- **AI 承担**：整理推送与部署步骤；核对本地 git 状态；部署后核验线上页面；更新 README 的在线地址与部署说明。
+- **过程**：
+  - 用户在 GitHub 创建空仓库 `iouyun07/CampusEvent`，本人执行 `git remote add origin` + `git push -u origin main`（53 个对象、39.89 KiB，main 分支建立并设置上游）。
+  - 释放 PythonAnywhere 实验一的 Web 应用名额；在 Bash console 中克隆仓库、创建 `campusevent` 虚拟环境、安装 12 个依赖，服务器端 `pytest -q` → `19 passed in 9.37s`。
+  - Web 标签用 Manual configuration 配置 Source code、Virtualenv、`/static/` 映射与 WSGI 文件，Reload 后线上可访问。
+- **验证**：线上 <https://iouyun07.pythonanywhere.com> 返回 200，活动列表显示 3 个预置活动（校园歌手大赛 / 编程马拉松 / 篮球友谊赛）、剩余名额与演示学生切换正常。
+- **人工判断**：部署形态选 PythonAnywhere 免费版而非临时磁盘的 PaaS，原因是 SQLite 数据需要持久化；实验一的在线地址随 Web 应用删除而下线，其代码与仓库保留。

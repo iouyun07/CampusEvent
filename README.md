@@ -2,6 +2,8 @@
 
 实验二 baseline-v1。单机运行、无需注册登录：学生端用页面右上角切换演示学生身份，管理端固定开放。
 
+**在线地址**：<https://iouyun07.pythonanywhere.com>（部署步骤见文末「部署说明」）
+
 ## 功能
 
 | 编号 | 功能 | 说明 |
@@ -95,6 +97,44 @@ python app.py
 - **观察者模式**：`EventBus` 发布报名领域事件，`NotificationObserver` 订阅并写站内消息；通知在业务事务提交后发布，失败写 `instance/notification_failures.log`，不影响业务结果。
 - **名额一致性**：名额只统计「已通过」；审批在 `BEGIN IMMEDIATE` 事务内重新读取并复查名额，避免并发超卖。
 - **幂等通知**：消息表 `dedupe_key` 唯一，重复事件不会产生重复消息。
+
+## 部署说明（PythonAnywhere）
+
+线上实例部署在 PythonAnywhere 免费账号（用户名 `iouyun07`），代码来自 GitHub 仓库 `iouyun07/CampusEvent`。
+
+1. 登录 PythonAnywhere，打开 **Consoles → Bash**，克隆代码：
+
+   ```bash
+   cd ~
+   git clone https://github.com/iouyun07/CampusEvent.git
+   cd CampusEvent
+   ```
+
+2. 创建虚拟环境并安装依赖：
+
+   ```bash
+   mkvirtualenv --python=/usr/bin/python3.13 campusevent
+   pip install -r requirements.txt
+   python -m pytest -q
+   ```
+
+3. 打开 **Web → Add a new web app → Manual configuration → Python 3.13**。
+4. **Code** 区块：Source code 与 Working directory 都填 `/home/iouyun07/CampusEvent`。
+5. **Virtualenv** 填 `/home/iouyun07/.virtualenvs/campusevent`。
+6. **Static files**：URL 填 `/static/`，Directory 填 `/home/iouyun07/CampusEvent/static`。
+7. 编辑 WSGI 文件 `/var/www/iouyun07_pythonanywhere_com_wsgi.py`：
+
+   ```python
+   import sys
+   path = "/home/iouyun07/CampusEvent"
+   if path not in sys.path:
+       sys.path.insert(0, path)
+   from app import app as application
+   ```
+
+8. 点 **Reload**，访问 <https://iouyun07.pythonanywhere.com>。
+
+数据保存在 `/home/iouyun07/CampusEvent/instance/campus_event.db`，重启服务不丢；更新代码后在 Bash 里执行 `cd ~/CampusEvent && git pull`，再点 Reload 即可生效。
 
 ## 已知限制
 
