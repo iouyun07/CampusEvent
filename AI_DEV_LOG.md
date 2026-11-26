@@ -34,3 +34,18 @@
   - Web 标签用 Manual configuration 配置 Source code、Virtualenv、`/static/` 映射与 WSGI 文件，Reload 后线上可访问。
 - **验证**：线上 <https://iouyun07.pythonanywhere.com> 返回 200，活动列表显示 3 个预置活动（校园歌手大赛 / 编程马拉松 / 篮球友谊赛）、剩余名额与演示学生切换正常。
 - **人工判断**：部署形态选 PythonAnywhere 免费版而非临时磁盘的 PaaS，原因是 SQLite 数据需要持久化；实验一的在线地址随 Web 应用删除而下线，其代码与仓库保留。
+
+## 2026-11-26 change-v2（CR-01 年级限定、CR-02 模拟邮件）
+
+- **AI 承担**：变更需求分析、设计文档 v2（类图 / 时序图 / 决策报告 / 评审记录）、代码实现、迁移脚本、测试与文档收尾。
+- **流程约定（人工判断）**：先出设计文档并经本人确认，再动代码；本地先行开发，线上暂不重新部署；提交由本人决定何时 push。
+- **关键决策**：
+  1. CR-01 采用 **继承直接报名策略**（`GradeLimitedPolicy(DirectRegistrationPolicy)`），先判年级再复用父类名额检查，避免复制容量逻辑；服务层仅新增 1 处学生上下文注入。
+  2. SQLite 无法修改 CHECK 约束，迁移采用 **事务内重建 `activities` 表**（外键临时关闭），`students` 用 `ALTER TABLE ADD COLUMN`，`schema_version` 保证幂等；不删库。
+  3. CR-02 采用 **新增观察者** 而非改服务：`EmailNotifier` 订阅同一批事件，`dedupe_key` 唯一 + 先占位再发送，失败写 `emails.error` 与 `notification_failures.log`，不影响报名事务。
+- **发现的问题与修复**：
+  1. **邮件失败可能回滚报名**：若在事务内发送，异常会回滚业务。改为事务提交后由观察者发送，观察者双层捕获异常。
+  2. **新增策略后页面显示英文值**：模板直接输出 `policy_type`，改为注入 `policy_labels` 统一映射。
+  3. **旧库迁移兼容性**：直接改 `schema.sql` 只对新库生效，补充 v1 结构脚本与「旧库升级 + 幂等」两条用例验证数据不丢。
+- **验证**：`python -m pytest -q` → `30 passed in 4.41s`（19 条 baseline 回归 + 9 条 CR + 2 条迁移）；真实应用冒烟覆盖列表、详情、报名、审批、消息；线上未重新部署，README 已注明。
+- **度量**：新增类 6 个、修改核心类 1 个（逻辑 0 改动）、生产代码 +443/-28 行、回归失败 0、文档 6 份、变更耗时约 8 分钟。
