@@ -1,0 +1,49 @@
+@startuml seq-grade-v2
+title 年级限定报名时序（v2）
+autonumber
+skinparam maxMessageSize 180
+
+actor 学生
+participant "活动详情页" as Page
+participant "RegistrationService" as Svc
+participant "ActivityRepository" as ActRepo
+participant "RegistrationRepository" as RegRepo
+participant "StudentRepository" as StuRepo
+participant "GradeLimitedPolicy" as Policy
+participant "CapacityChecker" as Cap
+participant "EventBus" as Bus
+participant "NotificationObserver" as Msg
+participant "EmailNotifier" as Mail
+
+学生 -> Page: 点击「立即报名」
+Page -> Svc: submit(activity_id, student_id)
+Svc -> ActRepo: get(activity_id)
+ActRepo --> Svc: Activity
+Svc -> RegRepo: find_active(activity_id, student_id)
+RegRepo --> Svc: None（无有效报名）
+Svc -> StuRepo: get(student_id)
+StuRepo --> Svc: Student(grade)
+Svc -> Policy: submit(PolicyContext(activity, student, checker))
+
+alt grade ∉ {2, 3}
+  Policy --> Svc: PolicyResult(False, grade_denied, 仅限大二、大三)
+  Svc --> Page: Result(False, 提示原因)
+  Page --> 学生: 显示「该活动仅限大二、大三学生报名」
+else grade ∈ {2, 3}
+  Policy -> Cap: has_room(activity)
+  Cap --> Policy: true / false
+  alt 无名额
+    Policy --> Svc: PolicyResult(False, capacity_full, 名额已满，报名失败)
+    Svc --> Page: Result(False, 名额已满)
+  else 有名额
+    Policy --> Svc: PolicyResult(True, 已通过)
+    Svc -> RegRepo: create(activity_id, student_id, 已通过)
+    RegRepo --> Svc: registration_id
+    Svc -> Bus: publish(RegistrationEvent approved)
+    Bus -> Msg: handle(event) → 站内消息
+    Bus -> Mail: handle(event) → 模拟邮件
+    Svc --> Page: Result(True, 报名成功)
+    Page --> 学生: 显示报名成功（状态 已通过）
+  end
+end
+@enduml

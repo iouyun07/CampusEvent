@@ -1,0 +1,37 @@
+@startuml seq-email-v2
+title 邮件通知时序（v2）
+autonumber
+skinparam maxMessageSize 190
+
+participant "RegistrationService" as Svc
+participant "EventBus" as Bus
+participant "NotificationObserver" as Msg
+participant "MessageRepository" as MsgRepo
+participant "EmailNotifier" as Mail
+participant "EmailRepository" as MailRepo
+participant "MockEmailSender" as Sender
+participant "失败日志" as Log
+
+Svc -> Bus: publish(RegistrationEvent approved / rejected)
+Bus -> Msg: handle(event)
+Msg -> MsgRepo: add(..., dedupe_key)
+MsgRepo --> Msg: 是否新增
+Bus -> Mail: handle(event)
+Mail -> MailRepo: add(..., dedupe_key=email:{type}:{rid}:{status})
+MailRepo --> Mail: email_id 或 0（已存在）
+
+alt 首次（email_id > 0）
+  Mail -> Sender: send(to_addr, subject, body)
+  alt 发送成功
+    Sender --> Mail: ok
+    Mail -> MailRepo: mark_sent(email_id)
+  else 发送失败
+    Sender --> Mail: raise Exception
+    Mail -> MailRepo: mark_failed(email_id, error)
+    Mail -> Log: 追加错误记录
+  end
+  Note over Mail: 异常被本观察者捕获，\n不向上抛，报名事务不受影响
+else 重复事件（email_id = 0）
+  Mail -> Mail: 跳过，不再发送
+end
+@enduml
