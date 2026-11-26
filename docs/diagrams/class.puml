@@ -1,0 +1,160 @@
+﻿@startuml class-diagram
+title CampusEvent 类图
+!pragma layout smetana
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam packageStyle rectangle
+
+package "领域模型 models" {
+  class Student <<dataclass>> {
+    +student_id: str
+    +name: str
+  }
+  class Activity <<dataclass>> {
+    +activity_id: int
+    +title: str
+    +category: str
+    +start_at: str
+    +location: str
+    +capacity: int
+    +policy_type: str
+    +has_started(now: str): bool
+    +is_direct(): bool
+  }
+  class Registration <<dataclass>> {
+    +id: int
+    +activity_id: int
+    +student_id: str
+    +status: str
+    +created_at: str
+    +updated_at: str
+    +is_active(): bool
+    +can_cancel(): bool
+  }
+  class Message <<dataclass>> {
+    +message_id: int
+    +student_id: str
+    +activity_id: int
+    +content: str
+    +created_at: str
+    +is_read: int
+    +dedupe_key: str
+  }
+}
+
+package "数据访问 repositories" {
+  class ActivityRepository {
+    +get(activity_id): Activity
+    +list(keyword): list
+    +create(data): int
+    +update(activity_id, data)
+    +delete(activity_id)
+  }
+  class RegistrationRepository {
+    +get(registration_id): Registration
+    +find_active(activity_id, student_id)
+    +count_status(activity_id, status): int
+    +count_all(activity_id): int
+    +create(activity_id, student_id, status): int
+    +update_status(registration_id, status)
+    +list_by_student(student_id): list
+    +list_pending(): list
+  }
+  class MessageRepository {
+    +add(student_id, activity_id, content, dedupe_key): bool
+    +list_by_student(student_id): list
+    +unread_count(student_id): int
+    +mark_read(message_id)
+    +mark_all_read(student_id)
+  }
+}
+
+package "名额与策略 capacity & policies" {
+  class CapacityChecker {
+    +approved_count(activity_id): int
+    +remaining(activity): int
+    +has_room(activity): bool
+  }
+  class PolicyResult <<dataclass>> {
+    +ok: bool
+    +status: str
+    +code: str
+    +message: str
+  }
+  class PolicyContext <<dataclass>> {
+    +activity: Activity
+    +student_id: str
+    +checker: CapacityChecker
+  }
+  abstract class RegistrationPolicy {
+    +submit(ctx: PolicyContext): PolicyResult
+  }
+  class DirectRegistrationPolicy
+  class ReviewRegistrationPolicy
+}
+
+package "事件与通知 events & notifications" {
+  class RegistrationEvent <<dataclass>> {
+    +type: str
+    +registration: Registration
+    +activity: Activity
+    +student_id: str
+  }
+  class EventBus {
+    +subscribe(event_type, handler)
+    +publish(event)
+    -_log_failure(event, error)
+  }
+  class NotificationObserver {
+    +handle(event)
+  }
+}
+
+package "应用服务 services" {
+  class Result <<dataclass>> {
+    +ok: bool
+    +code: str
+    +message: str
+    +errors: dict
+    +data: dict
+  }
+  class RegistrationService {
+    +submit(activity_id, student_id): Result
+    +approve(registration_id): Result
+    +reject(registration_id): Result
+    +cancel(registration_id, student_id): Result
+  }
+  class ActivityService {
+    +create(form): Result
+    +update(activity_id, form): Result
+    +delete(activity_id): Result
+    +stats(activity): dict
+  }
+}
+
+RegistrationPolicy <|-- DirectRegistrationPolicy
+RegistrationPolicy <|-- ReviewRegistrationPolicy
+DirectRegistrationPolicy ..> PolicyResult : creates
+ReviewRegistrationPolicy ..> PolicyResult : creates
+PolicyContext o-- CapacityChecker
+PolicyContext o-- Activity
+
+RegistrationService --> ActivityRepository
+RegistrationService --> RegistrationRepository
+RegistrationService --> RegistrationPolicy : chooses by policy_type
+RegistrationService --> CapacityChecker
+RegistrationService --> EventBus
+ActivityService --> ActivityRepository
+ActivityService --> RegistrationRepository
+
+EventBus o-- NotificationObserver
+EventBus ..> RegistrationEvent : publishes
+NotificationObserver --> MessageRepository
+
+ActivityRepository ..> Activity
+RegistrationRepository ..> Registration
+MessageRepository ..> Message
+
+RegistrationService ..> Result
+ActivityService ..> Result
+@enduml

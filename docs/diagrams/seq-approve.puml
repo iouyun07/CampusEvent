@@ -1,0 +1,52 @@
+﻿@startuml seq-approve
+title 管理员审批时序
+skinparam sequenceMessageAlign center
+autonumber
+
+actor 管理员
+participant "待审核列表页" as Page
+participant "RegistrationService" as Svc
+participant "RegistrationRepository" as RegRepo
+participant "ActivityRepository" as ActRepo
+participant "CapacityChecker" as Cap
+participant "EventBus" as Bus
+participant "NotificationObserver" as Notify
+participant "MessageRepository" as MsgRepo
+
+管理员 -> Page: 点击「通过」
+Page -> Svc: approve(registration_id)
+Svc -> RegRepo: get(registration_id)
+RegRepo --> Svc: Registration(status=待审核)
+Svc -> Svc: BEGIN IMMEDIATE
+Svc -> RegRepo: get(registration_id) 重读
+RegRepo --> Svc: Registration(status=待审核)
+Svc -> ActRepo: get(activity_id)
+Svc -> Cap: has_room(activity)
+Cap -> RegRepo: count_status(activity_id, 已通过)
+RegRepo --> Cap: n
+Cap --> Svc: true / false
+
+alt 还有名额
+  Svc -> RegRepo: update_status(registration_id, 已通过)
+  Svc -> Svc: COMMIT
+  Svc -> Bus: publish(RegistrationEvent approved)
+  Bus -> Notify: handle(event)
+  Notify -> MsgRepo: add(content, dedupe_key)
+  Svc --> Page: Result(ok, 已通过)
+  Page --> 管理员: 列表刷新，状态变「已通过」
+else 名额已满
+  Svc -> Svc: ROLLBACK
+  Svc --> Page: Result(失败, capacity_full)
+  Page --> 管理员: 提示「名额已满，无法通过」
+end
+
+note over Svc
+  事务内重读并复查名额，
+  避免两个管理员同时批准导致超额
+end note
+
+note over Bus, MsgRepo
+  通知失败不回滚报名结果：异常由 EventBus 捕获
+  并追加写入 instance/notification_failures.log
+end note
+@enduml

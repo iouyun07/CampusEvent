@@ -1,0 +1,49 @@
+﻿@startuml seq-direct
+title 直接报名时序
+skinparam sequenceMessageAlign center
+autonumber
+
+actor 学生
+participant "活动详情页" as Page
+participant "RegistrationService" as Svc
+participant "ActivityRepository" as ActRepo
+participant "RegistrationRepository" as RegRepo
+participant "DirectRegistrationPolicy" as Policy
+participant "CapacityChecker" as Cap
+participant "EventBus" as Bus
+participant "NotificationObserver" as Notify
+participant "MessageRepository" as MsgRepo
+
+学生 -> Page: 点击「立即报名」
+Page -> Svc: submit(activity_id, student_id)
+Svc -> ActRepo: get(activity_id)
+ActRepo --> Svc: Activity
+Svc -> RegRepo: find_active(activity_id, student_id)
+RegRepo --> Svc: None
+
+Svc -> Policy: submit(PolicyContext)
+Policy -> Cap: has_room(activity)
+Cap -> RegRepo: count_status(activity_id, 已通过)
+RegRepo --> Cap: 1
+Cap --> Policy: true
+Policy --> Svc: PolicyResult(ok, 已通过)
+
+Svc -> RegRepo: create(activity_id, student_id, 已通过)
+Svc -> Bus: publish(RegistrationEvent approved)
+Bus -> Notify: handle(event)
+Notify -> MsgRepo: add(content, dedupe_key)
+Svc --> Page: Result(ok, 报名成功)
+Page --> 学生: 提示报名成功，列表状态变「已通过」
+
+alt 名额已满
+  Cap --> Policy: false
+  Policy --> Svc: PolicyResult(失败, capacity_full)
+  Svc --> Page: Result(失败, 名额已满)
+  Page --> 学生: 提示「名额已满，报名失败」
+end
+
+alt 活动已开始或已有有效报名
+  Svc --> Page: Result(失败, started / duplicate)
+  Page --> 学生: 提示对应错误
+end
+@enduml

@@ -1,0 +1,42 @@
+﻿@startuml seq-review
+title 审核型报名时序
+skinparam sequenceMessageAlign center
+autonumber
+
+actor 学生
+participant "活动详情页" as Page
+participant "RegistrationService" as Svc
+participant "ActivityRepository" as ActRepo
+participant "RegistrationRepository" as RegRepo
+participant "ReviewRegistrationPolicy" as Policy
+participant "EventBus" as Bus
+participant "NotificationObserver" as Notify
+participant "MessageRepository" as MsgRepo
+
+学生 -> Page: 点击「申请报名」
+Page -> Svc: submit(activity_id, student_id)
+Svc -> ActRepo: get(activity_id)
+ActRepo --> Svc: Activity(policy_type=review)
+Svc -> RegRepo: find_active(activity_id, student_id)
+RegRepo --> Svc: None
+
+Svc -> Policy: submit(PolicyContext)
+Policy --> Svc: PolicyResult(ok=True, 待审核)
+
+Svc -> RegRepo: create(activity_id, student_id, 待审核)
+Svc -> Bus: publish(RegistrationEvent submitted)
+Bus -> Notify: handle(event)
+Notify -> MsgRepo: add(content, dedupe_key)
+Svc --> Page: Result(ok, 已提交申请)
+Page --> 学生: 提示「申请已提交，等待管理员审核」
+
+note over Svc, RegRepo
+  待审核不占用名额：
+  CapacityChecker 只统计 status = 已通过
+end note
+
+alt 活动已开始或已有有效报名
+  Svc --> Page: Result(失败, started / duplicate)
+  Page --> 学生: 提示对应错误
+end
+@enduml
