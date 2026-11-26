@@ -25,7 +25,7 @@
       <td>{{ a.category }}</td>
       <td>{{ a.start_at }}</td>
       <td>{{ a.location }}</td>
-      <td>{% if a.policy_type == 'direct' %}直接报名{% else %}需审核{% endif %}</td>
+      <td>{{ policy_labels.get(a.policy_type, a.policy_type) }}</td>
       <td>{{ row.remaining }} / {{ a.capacity }}</td>
       <td>
         {% if row.my %}

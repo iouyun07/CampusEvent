@@ -28,6 +28,7 @@
     <select name="policy_type">
       <option value="direct" {{ 'selected' if form.policy_type == 'direct' else '' }}>直接报名（名额未满即通过）</option>
       <option value="review" {{ 'selected' if form.policy_type == 'review' else '' }}>需审核（管理员审批）</option>
+      <option value="grade_limited" {{ 'selected' if form.policy_type == 'grade_limited' else '' }}>年级限定（仅大二、大三可直接报名）</option>
     </select>
     {% if errors.policy_type %}<span class="err">{{ errors.policy_type }}</span>{% endif %}
   </label>

@@ -26,6 +26,7 @@ from .repositories import (
     ActivityRepository,
     MessageRepository,
     RegistrationRepository,
+    StudentRepository,
 )
 
 
@@ -47,6 +48,7 @@ class RegistrationService:
         messages: MessageRepository,
         checker: CapacityChecker,
         bus: EventBus,
+        students: StudentRepository | None = None,
         policies: dict[str, RegistrationPolicy] | None = None,
     ):
         self.conn = conn
@@ -55,6 +57,7 @@ class RegistrationService:
         self.messages = messages
         self.checker = checker
         self.bus = bus
+        self.students = students
         self.policies = policies if policies is not None else POLICIES
 
     # ---------- 报名 ----------
@@ -71,7 +74,10 @@ class RegistrationService:
         if policy is None:
             return Result(False, "policy_missing", "该活动未配置报名规则")
 
-        outcome = policy.submit(PolicyContext(activity, student_id, self.checker))
+        student = self.students.get(student_id) if self.students is not None else None
+        outcome = policy.submit(
+            PolicyContext(activity, student_id, self.checker, student)
+        )
         if not outcome.ok:
             return Result(False, outcome.code, outcome.message)
 

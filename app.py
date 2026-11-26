@@ -4,22 +4,23 @@ from pathlib import Path
 
 from flask import Flask
 
-from campus import db
+from campus import db, migrations
 from campus.views import bp
 
 BASE_DIR = Path(__file__).resolve().parent
 INSTANCE_DIR = BASE_DIR / "instance"
 
 DEMO_STUDENTS = [
-    ("2023001", "张伟"),
-    ("2023002", "李娜"),
-    ("2023003", "王强"),
+    ("2023001", "张伟", 2),
+    ("2023002", "李娜", 3),
+    ("2023003", "王强", 1),
 ]
 
 DEMO_ACTIVITIES = [
     ("校园歌手大赛", "文艺", "2026-12-01 19:00", "大学生活动中心", 50, "direct"),
     ("编程马拉松", "科技", "2026-12-05 09:00", "图书馆报告厅", 30, "review"),
     ("篮球友谊赛", "体育", "2026-11-26 15:00", "东区篮球场", 20, "direct"),
+    ("高数冲刺讲座", "讲座", "2026-12-10 14:00", "第二教学楼 201", 40, "grade_limited"),
 ]
 
 
@@ -30,6 +31,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         DATABASE=str(INSTANCE_DIR / "campus_event.db"),
         FAILURE_LOG=str(INSTANCE_DIR / "notification_failures.log"),
         SEED_ACTIVITIES=True,
+        MOCK_EMAIL_FAIL_FOR="",
     )
     if test_config:
         app.config.update(test_config)
@@ -39,6 +41,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     conn = db.connect(app.config["DATABASE"])
     try:
         db.init_schema(conn, BASE_DIR / "schema.sql")
+        migrations.migrate(conn)
         seed_demo(conn, app.config["SEED_ACTIVITIES"])
     finally:
         conn.close()
@@ -51,7 +54,8 @@ def create_app(test_config: dict | None = None) -> Flask:
 def seed_demo(conn, with_activities: bool = True) -> None:
     if conn.execute("SELECT COUNT(*) FROM students").fetchone()[0] == 0:
         conn.executemany(
-            "INSERT INTO students (student_id, name) VALUES (?, ?)", DEMO_STUDENTS
+            "INSERT INTO students (student_id, name, grade) VALUES (?, ?, ?)",
+            DEMO_STUDENTS,
         )
     if with_activities and conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0] == 0:
         conn.executemany(

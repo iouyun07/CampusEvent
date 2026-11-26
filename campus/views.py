@@ -16,12 +16,15 @@ from flask import (
 from .capacity import CapacityChecker
 from .db import get_db
 from .events import EventBus
-from .models import POLICY_LABELS
-from .notifications import NotificationObserver
+from .mock_email import MockEmailSender
+from .models import GRADE_LABELS, POLICY_LABELS
+from .notifications import EmailNotifier, NotificationObserver
 from .repositories import (
     ActivityRepository,
+    EmailRepository,
     MessageRepository,
     RegistrationRepository,
+    StudentRepository,
 )
 from .services import ActivityService, RegistrationService
 
@@ -29,11 +32,11 @@ bp = Blueprint("main", __name__)
 
 DEFAULT_STUDENT = "2023001"
 
-# 演示用：页面右上角可切换学生身份，便于演示名额、审批等跨学生场景。
+# 演示用：页面右上角可切换学生身份，便于演示名额、审批、年级限定等跨学生场景。
 DEMO_STUDENTS = [
-    ("2023001", "张伟"),
-    ("2023002", "李娜"),
-    ("2023003", "王强"),
+    ("2023001", "张伟", 2),
+    ("2023002", "李娜", 3),
+    ("2023003", "王强", 1),
 ]
 
 
@@ -45,11 +48,14 @@ def _ensure_student(conn, student_id: str) -> None:
     row = conn.execute(
         "SELECT 1 FROM students WHERE student_id = ?", (student_id,)
     ).fetchone()
-    if row is None:
-        conn.execute(
-            "INSERT INTO students (student_id, name) VALUES (?, ?)",
-            (student_id, "演示学生"),
-        )
+    if row is not None:
+        return
+    known = {sid: (name, grade) for sid, name, grade in DEMO_STUDENTS}
+    name, grade = known.get(student_id, ("演示学生", 1))
+    conn.execute(
+        "INSERT INTO students (student_id, name, grade) VALUES (?, ?, ?)",
+        (student_id, name, grade),
+    )
 
 
 def _ctx() -> dict:
@@ -57,20 +63,31 @@ def _ctx() -> dict:
     activities = ActivityRepository(conn)
     registrations = RegistrationRepository(conn)
     messages = MessageRepository(conn)
+    students = StudentRepository(conn)
+    emails = EmailRepository(conn)
 
     checker = CapacityChecker(registrations)
-    bus = EventBus(Path(current_app.config["FAILURE_LOG"]))
+    failure_log = Path(current_app.config["FAILURE_LOG"])
+    bus = EventBus(failure_log)
     bus.subscribe("*", NotificationObserver(messages).handle)
+    fail_for = {
+        sid.strip()
+        for sid in (current_app.config.get("MOCK_EMAIL_FAIL_FOR") or "").split(",")
+        if sid.strip()
+    }
+    bus.subscribe("*", EmailNotifier(emails, MockEmailSender(fail_for), failure_log).handle)
 
     return {
         "conn": conn,
         "activities": activities,
         "registrations": registrations,
         "messages": messages,
+        "students": students,
+        "emails": emails,
         "checker": checker,
         "bus": bus,
         "registration_service": RegistrationService(
-            conn, activities, registrations, messages, checker, bus
+            conn, activities, registrations, messages, checker, bus, students
         ),
         "activity_service": ActivityService(conn, activities, registrations),
     }
@@ -92,6 +109,8 @@ def _inject_demo_context() -> dict:
     return {
         "demo_students": DEMO_STUDENTS,
         "current_student": session.get("student_id", DEFAULT_STUDENT),
+        "policy_labels": POLICY_LABELS,
+        "grade_labels": GRADE_LABELS,
     }
 
 

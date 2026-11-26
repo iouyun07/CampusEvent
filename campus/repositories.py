@@ -6,8 +6,10 @@ from .models import (
     STATUS_APPROVED,
     STATUS_PENDING,
     Activity,
+    Email,
     Message,
     Registration,
+    Student,
     now_text,
 )
 
@@ -37,6 +39,25 @@ def _registration(row: sqlite3.Row | None) -> Registration | None:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
+
+
+def _student(row: sqlite3.Row | None) -> Student | None:
+    if row is None:
+        return None
+    grade = row["grade"] if "grade" in row.keys() else 1
+    return Student(student_id=row["student_id"], name=row["name"], grade=grade)
+
+
+class StudentRepository:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def get(self, student_id: str) -> Student | None:
+        return _student(
+            self.conn.execute(
+                "SELECT * FROM students WHERE student_id = ?", (student_id,)
+            ).fetchone()
+        )
 
 
 class ActivityRepository:
@@ -203,3 +224,81 @@ class MessageRepository:
         self.conn.execute(
             "UPDATE messages SET is_read = 1 WHERE student_id = ?", (student_id,)
         )
+
+
+def _email(row: sqlite3.Row | None) -> Email | None:
+    if row is None:
+        return None
+    return Email(
+        email_id=row["email_id"],
+        student_id=row["student_id"],
+        activity_id=row["activity_id"],
+        registration_id=row["registration_id"],
+        to_addr=row["to_addr"],
+        subject=row["subject"],
+        body=row["body"],
+        status=row["status"],
+        error=row["error"],
+        dedupe_key=row["dedupe_key"],
+        created_at=row["created_at"],
+    )
+
+
+class EmailRepository:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def add(
+        self,
+        *,
+        student_id: str,
+        activity_id: int,
+        registration_id: int,
+        to_addr: str,
+        subject: str,
+        body: str,
+        dedupe_key: str,
+    ) -> int:
+        cur = self.conn.execute(
+            "INSERT OR IGNORE INTO emails"
+            " (student_id, activity_id, registration_id, to_addr, subject, body,"
+            "  status, error, dedupe_key, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, '待发送', '', ?, ?)",
+            (
+                student_id,
+                activity_id,
+                registration_id,
+                to_addr,
+                subject,
+                body,
+                dedupe_key,
+                now_text(),
+            ),
+        )
+        return int(cur.lastrowid) if cur.rowcount else 0
+
+    def get(self, email_id: int) -> Email | None:
+        return _email(
+            self.conn.execute(
+                "SELECT * FROM emails WHERE email_id = ?", (email_id,)
+            ).fetchone()
+        )
+
+    def mark_sent(self, email_id: int) -> None:
+        self.conn.execute(
+            "UPDATE emails SET status = '已发送', error = '' WHERE email_id = ?",
+            (email_id,),
+        )
+
+    def mark_failed(self, email_id: int, error: str) -> None:
+        self.conn.execute(
+            "UPDATE emails SET status = '失败', error = ? WHERE email_id = ?",
+            (error, email_id),
+        )
+
+    def list_by_student(self, student_id: str) -> list[Email]:
+        rows = self.conn.execute(
+            "SELECT * FROM emails WHERE student_id = ? ORDER BY email_id DESC",
+            (student_id,),
+        ).fetchall()
+        return [_email(row) for row in rows]

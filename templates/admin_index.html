@@ -28,7 +28,7 @@
       <td>{{ row.stats.approved }}</td>
       <td>{{ row.stats.pending }}</td>
       <td>{{ row.stats.remaining }}</td>
-      <td>{% if a.policy_type == 'direct' %}直接报名{% else %}需审核{% endif %}</td>
+      <td>{{ policy_labels.get(a.policy_type, a.policy_type) }}</td>
       <td class="actions">
         <a class="btn small" href="{{ url_for('main.activity_edit', activity_id=a.activity_id) }}">编辑</a>
         <form method="post" action="{{ url_for('main.activity_delete', activity_id=a.activity_id) }}"

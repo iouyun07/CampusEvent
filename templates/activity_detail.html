@@ -15,7 +15,7 @@
   <tr><th>分类</th><td>{{ activity.category }}</td></tr>
   <tr><th>开始时间</th><td>{{ activity.start_at }}</td></tr>
   <tr><th>地点</th><td>{{ activity.location }}</td></tr>
-  <tr><th>报名规则</th><td>{{ policy_label }}</td></tr>
+  <tr><th>报名规则</th><td>{{ policy_label }}{% if activity.policy_type == 'grade_limited' %}（仅限大二、大三）{% endif %}</td></tr>
   <tr><th>当前状态</th><td>{% if activity.has_started() %}已开始，报名已关闭{% else %}报名开放中{% endif %}</td></tr>
 </table>
 
